@@ -1,7 +1,8 @@
 from copy import deepcopy
+from pathlib import Path
 from uuid import uuid4
 
-from flask import Flask, jsonify, request
+from flask import Flask, abort, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 from data.causal_graph import CAUSAL_DAG, CAUSAL_EFFECT_STUDIES
@@ -23,6 +24,7 @@ from reasoning import (
 KNOWLEDGE_BASE_STATE = deepcopy(REASONING_KNOWLEDGE_BASE)
 FAMILY_GRAPH_STATE = deepcopy(FAMILY_GRAPH)
 CAUSAL_DAG_STATE = deepcopy(CAUSAL_DAG)
+FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 TEACHER_ACCOUNT = {
     "username": "wlc",
     "password": "wlc",
@@ -1090,6 +1092,23 @@ def create_app():
         result["targetPredicate"] = target
         result["relationTypes"] = FAMILY_GRAPH_STATE["relationTypes"]
         return _json_response(result)
+
+    @app.get("/")
+    def frontend_index():
+        if not FRONTEND_DIST.exists():
+            abort(404)
+        return send_from_directory(FRONTEND_DIST, "index.html")
+
+    @app.get("/<path:path>")
+    def frontend_asset_or_fallback(path):
+        if path.startswith("api/"):
+            abort(404)
+        if not FRONTEND_DIST.exists():
+            abort(404)
+        asset_path = FRONTEND_DIST / path
+        if asset_path.is_file():
+            return send_from_directory(FRONTEND_DIST, path)
+        return send_from_directory(FRONTEND_DIST, "index.html")
 
     return app
 
